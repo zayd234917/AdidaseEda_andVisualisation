@@ -1,9 +1,7 @@
-# ETL/Extract.py
 import pandas as pd
 
 
 def extract(path="Data/dataset.xlsx"):
-    # Peek at the raw file to find where headers actually are
     df = pd.read_excel("Data/dataset.xlsx")
     df = df.drop('Unnamed: 0', axis=1)
     df.columns = df.iloc[3]

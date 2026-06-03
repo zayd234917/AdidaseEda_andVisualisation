@@ -5,10 +5,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# ── Column name mapping ───────────────────────────────────────────────────────
-# Left  = what pandas reads from the xlsx (after Transform lowercases + underscores)
-# Right = what our schema expects
-# If your columns are different, only edit the LEFT side.
+
 COLUMN_MAP = {
     "retailer":         "retailer",
     "invoice_date":     "invoice_date",
@@ -36,7 +33,7 @@ def _check_columns(df: pd.DataFrame):
     """Warn about any expected columns that are missing."""
     missing = [col for col in COLUMN_MAP if col not in df.columns]
     if missing:
-        print("\n⚠️  Missing columns detected!")
+        print("\n Missing columns detected!")
         print(f"   Expected : {list(COLUMN_MAP.keys())}")
         print(f"   Got      : {df.columns.tolist()}")
         print(f"   Missing  : {missing}")
@@ -118,14 +115,12 @@ def _load_sales(df: pd.DataFrame, conn, retailer_map, location_map, product_map)
 
 
 def load(df: pd.DataFrame) -> int:
-    # 1. Rename columns to match expected names
     df = df.rename(columns=COLUMN_MAP)
 
-    # 2. Validate all required columns are present
     _check_columns(df)
 
     engine = get_engine()
-    with engine.begin() as conn:  # begin() auto-commits or rolls back on error
+    with engine.begin() as conn:  
         print("  Loading retailers...")
         retailer_map = _load_retailers(df, conn)
 
