@@ -22,25 +22,25 @@ def get_engine():
     return create_engine(db_url)
 
 
-# ── Health check ────────────────────────────────────────────────────────────
+# ── Health check ─────────────────────────────────────────────────────────────
 
 @app.get("/")
 def health():
     return {"status": "ok", "message": "Adidas Sales API is running"}
 
 
-# ── KPI summary ─────────────────────────────────────────────────────────────
+# ── KPI summary ──────────────────────────────────────────────────────────────
 
 @app.get("/kpis")
 def get_kpis():
     """Total revenue, profit, units sold, and average margin."""
     query = text("""
         SELECT
-            SUM(total_sales)       AS total_revenue,
-            SUM(operating_profit)  AS total_profit,
-            SUM(units_sold)        AS total_units,
-            AVG(operating_margin)  AS avg_margin
-        FROM sales
+            SUM(s.total_sales)      AS total_revenue,
+            SUM(s.operating_profit) AS total_profit,
+            SUM(s.units_sold)       AS total_units,
+            AVG(s.operating_margin) AS avg_margin
+        FROM sales s
     """)
     with get_engine().connect() as conn:
         row = conn.execute(query).mappings().fetchone()
@@ -49,113 +49,62 @@ def get_kpis():
         return dict(row)
 
 
-# ── Sales by region ──────────────────────────────────────────────────────────
+# ── Sales by region ───────────────────────────────────────────────────────────
 
 @app.get("/sales/by-region")
 def sales_by_region():
-    query = text("""
-        SELECT
-            region,
-            SUM(total_sales)      AS revenue,
-            SUM(operating_profit) AS profit
-        FROM sales
-        GROUP BY region
-        ORDER BY revenue DESC
-    """)
+    """Uses v_sales_by_region view — joins sales + locations."""
     with get_engine().connect() as conn:
-        rows = conn.execute(query).mappings().fetchall()
+        rows = conn.execute(text("SELECT * FROM v_sales_by_region")).mappings().fetchall()
         return [dict(r) for r in rows]
 
 
-# ── Sales by product ─────────────────────────────────────────────────────────
+# ── Sales by product ──────────────────────────────────────────────────────────
 
 @app.get("/sales/by-product")
 def sales_by_product():
-    query = text("""
-        SELECT
-            product,
-            SUM(total_sales)      AS revenue,
-            SUM(units_sold)       AS units,
-            SUM(operating_profit) AS profit
-        FROM sales
-        GROUP BY product
-        ORDER BY revenue DESC
-    """)
+    """Uses v_sales_by_product view — joins sales + products."""
     with get_engine().connect() as conn:
-        rows = conn.execute(query).mappings().fetchall()
+        rows = conn.execute(text("SELECT * FROM v_sales_by_product")).mappings().fetchall()
         return [dict(r) for r in rows]
 
 
-# ── Sales by retailer ────────────────────────────────────────────────────────
+# ── Sales by retailer ─────────────────────────────────────────────────────────
 
 @app.get("/sales/by-retailer")
 def sales_by_retailer():
-    query = text("""
-        SELECT
-            retailer,
-            SUM(total_sales)      AS revenue,
-            SUM(operating_profit) AS profit,
-            SUM(units_sold)       AS units
-        FROM sales
-        GROUP BY retailer
-        ORDER BY revenue DESC
-    """)
+    """Uses v_sales_by_retailer view — joins sales + retailers."""
     with get_engine().connect() as conn:
-        rows = conn.execute(query).mappings().fetchall()
+        rows = conn.execute(text("SELECT * FROM v_sales_by_retailer")).mappings().fetchall()
         return [dict(r) for r in rows]
 
 
-# ── Monthly trend ────────────────────────────────────────────────────────────
+# ── Monthly trend ─────────────────────────────────────────────────────────────
 
 @app.get("/sales/monthly-trend")
 def monthly_trend():
-    query = text("""
-        SELECT
-            year,
-            month,
-            SUM(total_sales)      AS revenue,
-            SUM(operating_profit) AS profit
-        FROM sales
-        GROUP BY year, month
-        ORDER BY year, month
-    """)
+    """Uses v_monthly_trend view."""
     with get_engine().connect() as conn:
-        rows = conn.execute(query).mappings().fetchall()
+        rows = conn.execute(text("SELECT * FROM v_monthly_trend")).mappings().fetchall()
         return [dict(r) for r in rows]
 
 
-# ── Sales by method (In-store / Online / Outlet) ─────────────────────────────
+# ── Sales by method (In-store / Online / Outlet) ──────────────────────────────
 
 @app.get("/sales/by-method")
 def sales_by_method():
-    query = text("""
-        SELECT
-            sales_method,
-            SUM(total_sales)      AS revenue,
-            SUM(units_sold)       AS units
-        FROM sales
-        GROUP BY sales_method
-        ORDER BY revenue DESC
-    """)
+    """Uses v_sales_by_method view."""
     with get_engine().connect() as conn:
-        rows = conn.execute(query).mappings().fetchall()
+        rows = conn.execute(text("SELECT * FROM v_sales_by_method")).mappings().fetchall()
         return [dict(r) for r in rows]
 
 
-# ── Top cities ───────────────────────────────────────────────────────────────
+# ── Top cities ────────────────────────────────────────────────────────────────
 
 @app.get("/sales/top-cities")
 def top_cities(limit: int = 10):
-    query = text("""
-        SELECT
-            city,
-            state,
-            SUM(total_sales) AS revenue
-        FROM sales
-        GROUP BY city, state
-        ORDER BY revenue DESC
-        LIMIT :limit
-    """)
+    """Uses v_top_cities view — joins sales + locations."""
+    query = text("SELECT * FROM v_top_cities LIMIT :limit")
     with get_engine().connect() as conn:
         rows = conn.execute(query, {"limit": limit}).mappings().fetchall()
         return [dict(r) for r in rows]
